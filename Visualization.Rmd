@@ -1,0 +1,104 @@
+---
+output: pdf_document
+---
+
+##-------------------------------------------------------------##
+##                    Visualization.Rmd
+##-------------------------------------------------------------##
+
+# This script creates and saves exploratory figures
+
+```{r message=F}
+library(tidyverse)
+library(corrplot)
+library(purrr)
+library(gridExtra)
+source("P_V_Helpers.R")
+source("Prep_Data.R")
+ggplot2::theme_set(ggthemes::theme_few())
+```
+
+# Plot Time Series and Correlations
+
+```{r warning=FALSE, fig.height=10}
+# Make plots of time series
+map2(original_vars, var_names, ts_plot) %>% 
+  arrange_ts_plot() %>% 
+  png_save("Time_Series_Original", show = T)
+```
+
+```{r message=F, warning=F}
+# Generate correlelogram
+cor(select_if(full, is.numeric) %>% drop_na()) %>%
+  round(2) %>% corrplot(method = "number", diag = F, number.digits = 2)%>% 
+  png_save("Corr_plots", h = 500, w = 500, show = F)
+```
+
+# Plot Differences
+
+
+```{r fig.height=10, warning=F}
+# Plot differences
+map2(paste0(original_vars, "_dif_1"), paste0(var_names, " (F DIF)"), ts_plot) %>% 
+  arrange_ts_plot() %>% 
+  png_save("First_Difference", show = T)
+```
+
+```{r fig.height=10, warning=F}
+# Plot differences
+map2(paste0(original_vars, "_dif_2"), paste0(var_names, " (S DIF)"), ts_plot) %>% 
+  arrange_ts_plot() %>% 
+  png_save("Second_Difference", show = T)
+```
+
+```{r fig.height=10, warning=F}
+# Plot differences
+map2(paste0(original_vars, "_dif_3"), paste0(var_names, " (T DIF)"), ts_plot) %>% 
+  arrange_ts_plot() %>% 
+  png_save("Third_Difference", show = T)
+```
+
+# Plot Log Correlations
+
+```{r}
+# Redo correlogram with log values
+
+for (country in c("Australia", 'Netherlands', "United States")){
+cor(full %>% filter(`Country Name` == country) %>%  select_if(is.numeric) %>% 
+      drop_na() %>% 
+      select(-contains('dif'), -contains('lag'), -year, -contains('log'))) %>% round(2) %>% 
+  corrplot(method = "number", diag = F, number.digits = 2) %>% 
+  png_save(paste0("Corr_log_plots_",country), show = F)
+}
+```
+
+```{r fig.height=10, warning=F}
+# Box plots to look for outliers
+box <- function(var){
+   full %>% ggplot(aes(x = Year, color = `Country Name`)) + 
+    geom_boxplot(aes_string(y = var), na.rm = T, outlier.colour = 'black') + 
+    theme(axis.title.x= element_text(size = 16),
+          axis.title.y= element_text(size = 16),
+          axis.text.x = element_text(size = 12),
+          axis.text.y= element_text(size = 12))
+}
+
+map(paste0(original_vars), box) %>% 
+  arrange_ts_plot()
+```
+
+```{r}
+# Box plot of mean radiation to look for outliers
+full %>% ggplot(aes(y = mean_rad, fill = `Country Name`)) + 
+  geom_boxplot(outlier.fill = 'black', na.rm = T) +
+  labs(title = "Box Plots of Mean Radiation") +
+   theme(axis.title.x= element_text(size = 16),
+        axis.title.y= element_text(size = 16),
+        axis.text.x = element_text(size = 12),
+        axis.text.y= element_text(size = 12),
+        title = element_text(size = 20, hjust = .5, face = "bold")) %>% 
+  png_save("box_plots_mean_rad.png")
+
+```
+
+
